@@ -6,7 +6,38 @@ from collections import namedtuple
 
 from . import data
 
+"""
+   Our .git/objects folder consits of object files. Object files names are the hashed version of their inner content.
+   There a few object types: 1) blob: These objects are regular files which contain data 
+   2) tree: These objects  contain metadata about the file sturcture at a given moment. 
+   3) commit: These objects represent a snapshot of the project at a specific point in time. They reference a tree object  and can have a parent commit, forming a commit history. They also contain a commit message 
+
+   For example: 
+      We have two files in our folder code1 and code2
+      Then we run the command git commit
+      This creates a tree object with an oid like 123141
+      The objet stores the information inside it:
+         blob 7182 code1.txt
+         blob 48ed code2.txt
+
+      When we run git commit 123141 (the oid we got from our previous commit)
+      We can read the contents of Tree Object 123141 and find the blob files of interest
+      In this case they are 7182 and 48ed
+      We then popualte the current working directory with these files since they 
+      were te files that we had at the time of the commit
+"""
+
+
 def write_tree (directory='.'):
+   """
+    Recursively builds a tree object from the given directory.
+
+    Args:
+        directory (str): The path to the directory to build the tree from.
+
+    Returns:
+        str: The hash (OID) of the tree object representing the directory structure.
+   """
    entries = []
    with os.scandir(directory) as it:
       for entry in it:
@@ -24,10 +55,13 @@ def write_tree (directory='.'):
          entries.append ((entry.name, oid, type_))
 
    tree = ''.join(f'{type_} {oid} {name}\n' for name, oid, type_ in sorted (entries))
-   return data.hash_object (tree.encode (), 'tree')
+   return data.hash_object(tree.encode(), 'tree')
 
 
 def _iter_tree_entries (oid):
+   """
+    Iterates through the entries of a tree object.
+   """
    if not oid:
       return
    tree = data.get_object (oid, 'tree')
@@ -37,6 +71,16 @@ def _iter_tree_entries (oid):
 
 
 def get_tree (oid, base_path=''):
+   """
+    Retrieves the tree structure represented by the given tree object OID.
+
+    Args:
+        oid (str): The OID of the tree object.
+        base_path (str): The base path for the tree structure.
+
+    Returns:
+        dict: A dictionary representing the tree structure.
+   """
    result = {}
    for type_, oid, name in _iter_tree_entries (oid):
       assert '/' not in name
@@ -51,6 +95,9 @@ def get_tree (oid, base_path=''):
    return result
 
 def _empty_current_directory ():
+   """
+    Empties the current directory of all files and subdirectories.
+   """
    for root, dirnames, filenames in os.walk ('.', topdown=False):
       for filename in filenames:
          path = os.path.relpath(os.path.join(root,filename))
@@ -69,14 +116,30 @@ def _empty_current_directory ():
             pass
 
 def read_tree (tree_oid):
+   """
+    Reads a tree object from the repository and recreates the directory structure in the working directory.
+
+    Args:
+        tree_oid (str): The OID of the tree object to read.
+   """
    _empty_current_directory ()
-   for path, oid in get_tree (tree_oid, base_path='./').items ():
+   for path, oid in get_tree (tree_oid, base_path='./').items():
       os.makedirs (os.path.dirname (path), exist_ok=True)
       with open (path, 'wb') as f:
          f.write (data.get_object (oid))
 
 
 def commit(message):
+   """
+    Creates a new commit object representing the current state of the repository.
+
+    Args:
+        message (str): The commit message.
+
+    Returns:
+        str: The OID of the newly created commit object.
+   """
+
    commit = f"tree {write_tree()}\n"
 
    HEAD = data.get_HEAD()
@@ -91,6 +154,12 @@ def commit(message):
    return oid
 
 def checkout(oid):
+   """
+    Updates the working directory to match the state of a specific commit.
+
+    Args:
+        oid (str): The OID of the commit to check out.
+   """
    commit = get_commit(oid)
    read_tree(commit.tree)
    data.set_HEAD(oid)
@@ -98,6 +167,15 @@ def checkout(oid):
 Commit = namedtuple('Commit', ['tree', 'parent', 'message'])
 
 def get_commit(oid):
+   """
+    Retrieves a commit object from the repository.
+
+    Args:
+        oid (str): The OID of the commit object to retrieve.
+
+    Returns:
+        Commit: A named tuple representing the commit object with fields for tree OID, parent OID, and message.
+   """
    parent = None
 
    commit = data.get_object(oid, 'commit').decode()

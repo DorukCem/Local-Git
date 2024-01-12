@@ -64,7 +64,7 @@ def write_tree (args):
    print (base.write_tree ())
 
 def read_tree (args):
-   base.read_tree (args.tree)
+   base.read_tree(args.tree)
 
 def commit (args):
    print (base.commit (args.message))
