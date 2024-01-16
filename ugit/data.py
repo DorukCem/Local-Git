@@ -51,22 +51,24 @@ def get_object (oid, expected='blob'):
       assert type_ == expected, f'Expected {expected}, got {type_}'
    return content
 
-def set_HEAD(oid):
+def update_ref(ref, oid):
    """
-    Sets the HEAD reference of the ugit repository to the given OID.
+    point a reference to an OID
 
     Args:
         oid (str): The OID to set as the HEAD reference.
    """
-   with open(os.path.join(GIT_DIR, 'HEAD'), "w") as f:
+   ref_path = os.path.join(GIT_DIR, ref)
+   os.makedirs(os.path.dirname(ref_path), exist_ok= True)
+   with open(ref_path, 'w') as f:
       f.write(oid)
 
-def get_HEAD():
+def get_ref(ref):
    """
     Returns:
-        str: The OID pointed to by the HEAD reference.
+        str: The OID pointed to by the reference.
    """
-   head_file = os.path.join(GIT_DIR, 'HEAD')
-   if os.path.isfile(head_file):
-      with open(head_file) as f:
+   ref_path = os.path.join(GIT_DIR, ref)
+   if os.path.isfile(ref_path):
+      with open(ref_path) as f:
          return f.read().strip()
