@@ -53,10 +53,11 @@ def get_object (oid, expected='blob'):
 
 def update_ref(ref, oid):
    """
-    point a reference to an OID
+    Updates the reference pointed to by `ref` to point to the object with OID `oid`.
 
     Args:
-        oid (str): The OID to set as the HEAD reference.
+        ref (str): The reference to be updated (e.g., 'HEAD', 'master').
+        oid (str): The OID of the object to which the reference should point.
    """
    ref_path = os.path.join(GIT_DIR, ref)
    os.makedirs(os.path.dirname(ref_path), exist_ok= True)
@@ -65,9 +66,10 @@ def update_ref(ref, oid):
 
 def get_ref(ref):
    """
-    Returns:
-        str: The OID pointed to by the reference.
+    Retrieves the OID (object ID) that the reference `ref` points to.
+
    """
+
    ref_path = os.path.join(GIT_DIR, ref)
    if os.path.isfile(ref_path):
       with open(ref_path) as f:

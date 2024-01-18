@@ -1,7 +1,7 @@
 import os
 import itertools
 import operator
-
+import string
 from collections import namedtuple
 
 from . import data
@@ -196,7 +196,23 @@ def get_commit(oid):
    return Commit(tree= tree, parent= parent, message= message)
 
 def get_oid(name):
-   return data.get_ref(name) or name
+   refs_to_try = [
+      name,
+      os.path.join("refs", name),
+      os.path.join("refs", "tags", name),
+      os.path.join("refs", "heads", name ),
+   ]
+
+   for ref in refs_to_try:
+      if data.get_ref(ref):
+         return data.get_ref(ref)
+      
+   is_hex = all( map(lambda x : x in string.hexdigits, name)) 
+   if len(name) == 40 and is_hex:
+      return name
+   
+   assert False, f"Unknown name {name}"
+   
 
 def is_ignored(path):
    return '.ugit' in path.split(os.path.sep)
