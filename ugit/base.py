@@ -44,7 +44,18 @@ from . import data
    
    When you switch branches, the HEAD reference is updated to point to the new branch, and the working directory is updated to match the state of the new branch.
 
-
+   In some way, branches are just tags that always refer to the last commit of branch: 
+   Since head points to a branch when we check it out, any change to the head will also change the branch 
+   (such as commits moving the head forward)
+   In contrast if we were to checkout the same oid pointed by the branch, the head would point to that oid directly
+   and therefore it would not change the branch 
+   ( "detached HEAD" state, meaning that HEAD is not pointing to any branch but directly to a commit. 
+   In this state, new commits won't update any branch references because HEAD is not associated with a branch.)
+   o-----o-----o-----o-----o-----o-----O (3d8773...)
+                   \                ^
+                    ----o---o    branch1 <--- HEAD
+                            ^
+                         branch2
 """
 
 def init():
@@ -165,6 +176,7 @@ def commit(message):
 
    commit = f"tree {write_tree()}\n"
 
+   # Include the parent commit reference if it exists (for non-initial commits)
    HEAD = data.get_ref('HEAD').value
    if HEAD:
       commit += f"parent {HEAD}\n"
@@ -173,6 +185,7 @@ def commit(message):
    commit += f"{message}\n"
 
    oid = data.hash_object(commit.encode(), 'commit')
+   # Update the HEAD reference to point to the new commit
    data.update_ref('HEAD', data.RefValue(symbolic=False, value=oid))
    return oid
 
@@ -188,6 +201,7 @@ def checkout(name):
    read_tree(commit.tree)
 
    if is_branch(name):
+      # If it's a branch, update the HEAD reference to point to the branch (last commit on that branch)
       HEAD = data.RefValue(symbolic= True, value= os.path.join("refs", "heads", name))
    else:
       HEAD = data.RefValue(symbolic= False, value= oid)
