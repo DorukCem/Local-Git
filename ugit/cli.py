@@ -1,6 +1,5 @@
 import argparse
 import os
-import subprocess
 import sys
 import textwrap
 
@@ -49,17 +48,25 @@ def parse_args():
 
    checkout_parser = commands.add_parser ('checkout')
    checkout_parser.set_defaults(func=checkout)
-   checkout_parser.add_argument('oid', type= oid)
+   checkout_parser.add_argument("commit")
    
    tag_parser = commands.add_parser('tag')
    tag_parser.set_defaults(func=tag)
    tag_parser.add_argument('name')
    tag_parser.add_argument('oid', nargs='?')
 
+   branch_parser = commands.add_parser ('branch')
+   branch_parser.set_defaults (func=branch)
+   branch_parser.add_argument ('name', nargs='?')
+   branch_parser.add_argument ('start_point', default='@', type=oid, nargs='?')
+
+   status_parser = commands.add_parser ('status')
+   status_parser.set_defaults (func=status)
+
    return parser.parse_args()
 
 def init (args):
-   data.init()
+   base.init()
    print(f'Initialized empty ugit repository in {os.getcwd()}/{data.GIT_DIR}')
 
 def hash_object (args):
@@ -77,22 +84,38 @@ def read_tree (args):
    base.read_tree(args.tree)
 
 def commit (args):
-   print (base.commit (args.message))
+   print(base.commit (args.message))
 
 def log(args):
-   oid = args.oid or data.get_ref('HEAD')
-   while oid:
+   for oid in base.iter_commits_and_parents({args.oid}):
       commit = base.get_commit(oid)
 
       print(f"commit {oid}\n")
       print(textwrap.indent(commit.message, '     '))
       print('')
 
-      oid = commit.parent
-
 def checkout(args):
-   base.checkout(args.oid)
+   base.checkout(args.commit)
 
 def tag(args):
    oid = args.oid or data.get_ref('HEAD')
    base.create_tag(args.name, oid)
+
+def branch(args):
+   if not args.name:
+      current = base.get_branch_name()
+      for branch in base.iter_branch_names():
+         prefix = '*' if branch == current else ' '
+         print(f"{prefix} {branch}")
+
+   else:
+      base.create_branch(args.name, args.start_point)
+      print(f"Branch {args.name} created at {args.start_point[:10]}")
+
+def status(args):
+   HEAD = base.get_oid("@")
+   branch = base.get_branch_name()
+   if branch:
+      print(f"On branch {branch}")
+   else:
+      print(f"Head detached at {HEAD[:10]}")

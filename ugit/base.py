@@ -2,7 +2,7 @@ import os
 import itertools
 import operator
 import string
-from collections import namedtuple
+from collections import namedtuple, deque
 
 from . import data
 
@@ -27,6 +27,29 @@ from . import data
       were te files that we had at the time of the commit
 """
 
+"""
+   References:
+   References are pointers to specific commits in the repository.
+   They can be symbolic or direct:
+   Symbolic references are pointers to other references. For example, the HEAD reference is often symbolic, pointing to the current branch or commit.
+   Direct references point directly to a commit or object.
+   Refs are stored in the .ugit/refs directory as files. Each file represents a reference, with its content being the OID (object ID) of the commit or the reference it points to.
+
+   Branches:
+   In this system, branches are a type of reference that points to a specific commit.
+   Branches are stored as files within the .ugit/refs/heads directory. Each file represents a branch, and its content is the OID of the commit it points to.
+   When you create a new branch, a new file is created in the .ugit/refs/heads directory with the name of the branch, and its content is the OID of the commit it points to.
+
+   When you create a new commit, the branch reference (e.g., refs/heads/master) is updated to point to the new commit.
+   
+   When you switch branches, the HEAD reference is updated to point to the new branch, and the working directory is updated to match the state of the new branch.
+
+
+"""
+
+def init():
+   data.init()
+   data.update_ref("HEAD", data.RefValue(symbolic=True, value = os.path.join("refs", "heads", "master")))
 
 def write_tree (directory='.'):
    """
@@ -142,7 +165,7 @@ def commit(message):
 
    commit = f"tree {write_tree()}\n"
 
-   HEAD = data.get_ref('HEAD')
+   HEAD = data.get_ref('HEAD').value
    if HEAD:
       commit += f"parent {HEAD}\n"
 
@@ -150,22 +173,46 @@ def commit(message):
    commit += f"{message}\n"
 
    oid = data.hash_object(commit.encode(), 'commit')
-   data.update_ref('HEAD', oid)
+   data.update_ref('HEAD', data.RefValue(symbolic=False, value=oid))
    return oid
 
-def checkout(oid):
+def checkout(name):
    """
     Updates the working directory to match the state of a specific commit.
 
     Args:
-        oid (str): The OID of the commit to check out.
+        name (str): The name of the commit to check out.
    """
+   oid = get_oid(name)
    commit = get_commit(oid)
    read_tree(commit.tree)
-   data.update_ref('HEAD', oid)
+
+   if is_branch(name):
+      HEAD = data.RefValue(symbolic= True, value= os.path.join("refs", "heads", name))
+   else:
+      HEAD = data.RefValue(symbolic= False, value= oid)
+   data.update_ref("HEAD", HEAD, deref= False)
 
 def create_tag(name, oid):
-   data.update_ref(os.path.join("refs", "tags", name), oid)
+   data.update_ref(os.path.join("refs", "tags", name), data.RefValue(symbolic=False, value=oid))
+
+def create_branch(name, oid):
+   data.update_ref(os.path.join("refs", "heads", name), data.RefValue(symbolic=False, value=oid))
+
+def iter_branch_names():
+   for refname, _ in data.iter_ref(os.path.join.path("refs", "head")):
+      yield os.path.realpath(refname, os.path.join.path("refs", "head"))
+
+def is_branch(branch):
+   return data.get_ref(os.path.join("refs", "heads", branch)).value is not None
+
+def get_branch_name():
+   HEAD = data.get_ref("HEAD", deref= False)
+   if not HEAD.symbolic:
+      return None
+   HEAD = HEAD.value
+   assert HEAD.startswith(os.path.join("refs", "heads"))
+   return os.path.relpath(HEAD, os.path.join("refs", "heads"))
 
 Commit = namedtuple('Commit', ['tree', 'parent', 'message'])
 
@@ -196,20 +243,22 @@ def get_commit(oid):
    return Commit(tree= tree, parent= parent, message= message)
 
 def iter_commits_and_parents(oids):
-   oids = set(oids)
+   oids = deque(oids)
    visited = set()
 
    while oids:
-      oid = oids.pop()
+      oid = oids.popleft()
       if not oid or oid in visited:
          continue
       visited.add(oid)
       yield oid
 
       commit = get_commit(oid)
-      oids.add(commit.parent)
+      oids.appendleft(commit.parent)
 
 def get_oid(name):
+   if name == '@': name = "HEAD"
+
    refs_to_try = [
       name,
       os.path.join("refs", name),
@@ -218,8 +267,8 @@ def get_oid(name):
    ]
 
    for ref in refs_to_try:
-      if data.get_ref(ref):
-         return data.get_ref(ref)
+      if data.get_ref(ref, deref=False).value:
+         return data.get_ref(ref).value
       
    is_hex = all( map(lambda x : x in string.hexdigits, name)) 
    if len(name) == 40 and is_hex:
