@@ -5,6 +5,7 @@ import textwrap
 
 from . import base
 from . import data
+from . import diff
 
 # TODO Remove unused functions
 
@@ -63,6 +64,15 @@ def parse_args():
    status_parser = commands.add_parser ('status')
    status_parser.set_defaults (func=status)
 
+   reset_parser = commands.add_parser('reset')
+   reset_parser.set_defaults(func=reset)
+   reset_parser.add_argument('commit', type=oid)
+
+   show_parser = commands.add_parser ('show')
+   show_parser.set_defaults (func=show)
+   show_parser.add_argument ('oid', default='@', type=oid, nargs='?')
+
+
    return parser.parse_args()
 
 def init (args):
@@ -86,13 +96,32 @@ def read_tree (args):
 def commit (args):
    print(base.commit (args.message))
 
+def _print_commit(oid, commit, refs= None):
+   refs_str = f' ({", ".join (refs)})' if refs else ''
+   print (f'commit {oid}{refs_str}\n')
+   print (textwrap.indent (commit.message, '    '))
+   print ('')
+
 def log(args):
+   refs = {}
+   for refname, ref in data.iter_ref():
+      refs.setdefault(ref.value, []).append(refname)
    for oid in base.iter_commits_and_parents({args.oid}):
       commit = base.get_commit(oid)
+      _print_commit(oid, commit, refs.get(oid))
 
-      print(f"commit {oid}\n")
-      print(textwrap.indent(commit.message, '     '))
-      print('')
+def show(args):
+   if not args.oid:
+      return
+   commit = base.get_commit(args.oid)
+   parent_tree = None
+   if commit.parent:
+      parent_tree = base.get_commit(commit.parent).tree
+
+   _print_commit(args.oid, commit)
+   result = diff.diff_trees( base.get_tree(parent_tree), base.get_tree(commit.tree))
+   sys.stdout.flush()
+   sys.stdout.buffer.write(result)
 
 def checkout(args):
    base.checkout(args.commit)
@@ -119,3 +148,6 @@ def status(args):
       print(f"On branch {branch}")
    else:
       print(f"Head detached at {HEAD[:10]}")
+
+def reset(args):
+   base.reset(args.commit)
