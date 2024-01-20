@@ -96,7 +96,8 @@ def get_ref(ref, deref= True):
 
 def _get_ref_internal(ref, deref):
    """
-    Internal function to retrieve the reference value.
+      When given a non-symbolic ref, _get_ref_internal will return the ref name and value.
+      When given a symbolic ref, _get_ref_internal will dereference the ref recursively, and then return the name of the last (non-symbolic) ref that points to an OID, plus its value.
 
     Args:
         ref (str): The name of the reference.

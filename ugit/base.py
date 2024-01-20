@@ -41,6 +41,8 @@ from . import data
    When you create a new branch, a new file is created in the .ugit/refs/heads directory with the name of the branch, and its content is the OID of the commit it points to.
 
    When you create a new commit, the branch reference (e.g., refs/heads/master) is updated to point to the new commit.
+      In update_ref(), get_ref_internal() returns the ref named branch1 which points to the last commit on that branch
+      Then, we change that reference to point to the newest commit in our branch
    
    When you switch branches, the HEAD reference is updated to point to the new branch, and the working directory is updated to match the state of the new branch.
 
@@ -214,8 +216,8 @@ def create_branch(name, oid):
    data.update_ref(os.path.join("refs", "heads", name), data.RefValue(symbolic=False, value=oid))
 
 def iter_branch_names():
-   for refname, _ in data.iter_ref(os.path.join.path("refs", "head")):
-      yield os.path.realpath(refname, os.path.join.path("refs", "head"))
+   for refname, _ in data.iter_ref(os.path.join("refs", "heads")):
+      yield os.path.relpath(refname, os.path.join("refs", "heads"))
 
 def is_branch(branch):
    return data.get_ref(os.path.join("refs", "heads", branch)).value is not None
