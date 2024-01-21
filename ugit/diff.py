@@ -46,3 +46,25 @@ def diff_blobs(o_from, o_to, path= "blob"):
 
    # Join the diff lines into a single string
    return '\n'.join(diff).encode("utf-8")
+
+def merge_trees(t_HEAD, t_other):
+   tree = {}
+   for path, o_HEAD, o_other in compare_trees(t_HEAD, t_other):
+      tree[path] = merge_blobs(o_HEAD, o_other)
+   return tree
+
+def merge_blobs(o_HEAD, o_other):
+   data_HEAD = data.get_object(o_HEAD) if o_HEAD else b""
+   data_other = data.get_object(o_other) if o_other else b""
+
+   # Decode bytes to strings
+   data_HEAD_str = data_HEAD.decode("utf-8")
+   data_other_str = data_other.decode("utf-8")
+
+   # Compute the unified diff
+   diff = difflib.unified_diff(data_HEAD_str.splitlines(keepends=True), data_other_str.splitlines(keepends=True), 
+                               fromfile='HEAD', tofile='other', lineterm='', n= 0)
+   
+  
+   # Join the diff lines into a single string
+   return "\n".join(diff).encode("utf-8")
