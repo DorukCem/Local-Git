@@ -125,9 +125,20 @@ def get_tree (oid, base_path=''):
       if type_ == 'blob':
          result[path] = oid
       elif type_ == 'tree':
-         result.update(get_tree (oid, f'{path}/'))
+         result.update(get_tree (oid, os.path.join(path, '')))
       else:
          assert False, f'Unknown tree entry {type_}'
+   return result
+
+def get_working_tree():
+   result = {}
+   for root, _, filenames in os.walk("."):
+      for filename in filenames:
+         path = os.path.relpath(os.path.join(root, filename))
+         if is_ignored(path) or not os.path.isfile(path):
+            continue
+         with open(path, 'rb') as f:
+            result[path] = data.hash_object(f.read())
    return result
 
 def _empty_current_directory ():
