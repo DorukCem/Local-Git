@@ -62,9 +62,12 @@ def merge_blobs(o_HEAD, o_other):
    data_other_str = data_other.decode("utf-8")
 
    # Compute the unified diff
-   diff = difflib.unified_diff(data_HEAD_str.splitlines(keepends=True), data_other_str.splitlines(keepends=True), 
-                               fromfile='HEAD', tofile='other', lineterm='', n= 0)
-   
-  
-   # Join the diff lines into a single string
+   diff_ite = difflib.unified_diff(data_HEAD_str.splitlines(), data_other_str.splitlines())
+    
+   # Skip over the header in the diff
+   for i,c in enumerate(diff_ite):
+      if i == 2:
+         break
+   diff = [i.removeprefix("-").removeprefix("+").removeprefix(" ") for i in diff_ite]
    return "\n".join(diff).encode("utf-8")
+  
