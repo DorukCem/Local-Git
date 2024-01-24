@@ -94,6 +94,10 @@ def get_ref(ref, deref= True):
    """
    return _get_ref_internal(ref, deref)[1]
 
+def delete_ref(ref, deref= True):
+   ref = _get_ref_internal(ref, deref)[0]
+   os.remove(os.path.join(GIT_DIR, ref))
+
 def _get_ref_internal(ref, deref):
    """
       When given a non-symbolic ref, _get_ref_internal will return the ref name and value.
@@ -131,7 +135,7 @@ def iter_ref(prefix = '', deref= True):
     Yields:
         Tuple[str, RefValue]: A tuple containing the reference name and its value.
    """
-   refs = ['HEAD']
+   refs = ['HEAD', 'MERGE_HEAD']
    for root, _ , filenames in os.walk(os.path.join(GIT_DIR, "refs")):
       root = os.path.relpath(root, GIT_DIR)
       refs.extend([os.path.join(root, name) for name in filenames])
@@ -139,4 +143,6 @@ def iter_ref(prefix = '', deref= True):
    for refname in refs:
       if not refname.startswith(prefix):
          continue
-      yield refname, get_ref(refname, deref= deref)
+      ref = get_ref(refname, deref=deref)
+      if ref.value:
+         yield refname, ref

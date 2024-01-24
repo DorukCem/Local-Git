@@ -80,6 +80,11 @@ def parse_args():
    merge_parser.set_defaults (func=merge)
    merge_parser.add_argument ('commit', type=oid)
 
+   merge_base_parser = commands.add_parser ('merge-base')
+   merge_base_parser.set_defaults (func=merge_base)
+   merge_base_parser.add_argument ('commit1', type=oid)
+   merge_base_parser.add_argument ('commit2', type=oid)
+
    return parser.parse_args()
 
 def init (args):
@@ -123,7 +128,7 @@ def show(args):
    commit = base.get_commit(args.oid)
    parent_tree = None
    if commit.parent:
-      parent_tree = base.get_commit(commit.parent).tree
+      parent_tree = base.get_commit(commit.parents[0]).tree
 
    _print_commit(args.oid, commit)
    result = diff.diff_trees( base.get_tree(parent_tree), base.get_tree(commit.tree))
@@ -156,6 +161,10 @@ def status(args):
    else:
       print(f"Head detached at {HEAD[:10]}")
 
+   MERGE_HEAD = data.get_ref('MERGE_HEAD').value
+   if MERGE_HEAD:
+      print(f"Merging with {MERGE_HEAD[:10]}")
+
    print ('\nChanges to be committed:\n')
    HEAD_tree = HEAD and base.get_commit (HEAD).tree
    for path, action in diff.iter_changed_files(base.get_tree(HEAD_tree), base.get_working_tree()):
@@ -166,6 +175,9 @@ def reset(args):
 
 def merge(args):
    base.merge(args.commit)
+
+def merge_base(args):
+   print( base.get_merge_base(args.commit1, args.commit2) )
 
 def _diff(args):
    tree = args.commit and base.get_commit(args.commit).tree

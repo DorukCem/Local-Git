@@ -201,6 +201,11 @@ def commit(message):
    if HEAD:
       commit += f"parent {HEAD}\n"
 
+   MERGE_HEAD = data.get_ref('MERGE HEAD').value
+   if MERGE_HEAD:
+      commit += f"parent {MERGE_HEAD}\n"
+      data.delete_ref('MERGE_HEAD', deref= False)
+
    commit += "\n"
    commit += f"{message}\n"
 
@@ -236,8 +241,31 @@ def merge(other):
    assert HEAD
    c_HEAD = get_commit(HEAD)
    c_other = get_commit(other)
+
+   data.update_ref('MERGE_HEAD', data.RefValue(symbolic=False, value=other))
+
    read_tree_merged(c_HEAD.tree, c_other.tree)
-   print("Merged in working tree")
+   print("Merged in working tree\nPlease commit")
+
+def get_merge_base(oid1, oid2):
+   """
+      Finds the firt common ancestor of two commits
+         commit C    commit A
+         v           v
+      o---o---o---o---o
+         \\
+          \\ --o---o
+                  ^
+                  commit B
+      (In this example C is the common ancestor of A and B)
+   """
+   # Saves all parents of the first commit to a set and it iterates over the parents of the 
+   # second commit in ancestry order until it reaches a parent that is a parent of the first commit
+   parents1 = set(iter_commits_and_parents({oid1}))
+
+   for oid in iter_commits_and_parents({oid2}):
+      if oid in parents1:
+         return oid
 
 def create_tag(name, oid):
    data.update_ref(os.path.join("refs", "tags", name), data.RefValue(symbolic=False, value=oid))
@@ -260,7 +288,7 @@ def get_branch_name():
    assert HEAD.startswith(os.path.join("refs", "heads"))
    return os.path.relpath(HEAD, os.path.join("refs", "heads"))
 
-Commit = namedtuple('Commit', ['tree', 'parent', 'message'])
+Commit = namedtuple('Commit', ['tree', 'parents', 'message'])
 
 def get_commit(oid):
    """
@@ -272,7 +300,7 @@ def get_commit(oid):
     Returns:
         Commit: A named tuple representing the commit object with fields for tree OID, parent OID, and message.
    """
-   parent = None
+   parents = []
 
    commit = data.get_object(oid, 'commit').decode()
    lines = iter(commit.splitlines())
@@ -281,12 +309,12 @@ def get_commit(oid):
       if key == 'tree':
          tree = value
       elif key == 'parent':
-         parent = value
+         parents.append(value)
       else:
          assert False, f"Unknown field {key}"
 
    message = "\n".join(lines)
-   return Commit(tree= tree, parent= parent, message= message)
+   return Commit(tree= tree, parents= parents, message= message)
 
 def iter_commits_and_parents(oids):
    oids = deque(oids)
@@ -300,7 +328,9 @@ def iter_commits_and_parents(oids):
       yield oid
 
       commit = get_commit(oid)
-      oids.appendleft(commit.parent)
+
+      oids.extendleft(commit.parents[:1])
+      oids.extend(commit.parents[1:])
 
 def get_oid(name):
    if name == '@': name = "HEAD"
